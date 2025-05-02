@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == RESULT_OK) {
- //           startScan()
+            //           startScan()
         } else {
             temperatureTextView.text = "❌ Bluetooth must be enabled to use this app"
         }
@@ -162,7 +162,26 @@ class MainActivity : AppCompatActivity() {
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             enableBluetoothLauncher.launch(enableBtIntent)
         } else {
-//           startScan()
+           startScan()
+        }
+    }
+
+    // Start scanning for BLE devices
+    private fun startScan() {
+        // Permission check
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.BLUETOOTH_SCAN
+                ) != PackageManager.PERMISSION_GRANTED ||
+                ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.BLUETOOTH_CONNECT
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.e("Permission", "Bluetooth permissions not granted!")
+                return
+            }
         }
     }
 }
