@@ -162,7 +162,7 @@ class MainActivity : AppCompatActivity() {
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             enableBluetoothLauncher.launch(enableBtIntent)
         } else {
-           startScan()
+            startScan()
         }
     }
 
@@ -182,6 +182,17 @@ class MainActivity : AppCompatActivity() {
                 Log.e("Permission", "Bluetooth permissions not granted!")
                 return
             }
+            if (ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.e("Permission", "Location permission not granted!")
+                return
+            }
+
+
         }
     }
+
 }
