@@ -234,7 +234,7 @@ class MainActivity : AppCompatActivity() {
                         Manifest.permission.BLUETOOTH_SCAN
                     ) == PackageManager.PERMISSION_GRANTED
                 ) {
-//                    scanner?.stopScan(scanCallback)
+ //                   scanner?.stopScan(scanCallback)
                 }
             } else {
  //               scanner?.stopScan(scanCallback)
@@ -243,4 +243,60 @@ class MainActivity : AppCompatActivity() {
             Log.e("BLE", "Error stopping scan: ${e.message}")
         }
     }
+        // Connect to the BLE device
+    private fun connectToDevice(device: BluetoothDevice) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.BLUETOOTH_CONNECT
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                temperatureTextView.text = "❌ Bluetooth Connect permission denied"
+                return
+            }
+
+          //  bluetoothGatt = device.connectGatt(this, false, gattCallback)
+        } catch (e: Exception) {
+            Log.e("BLE", "Error connecting: ${e.message}")
+            temperatureTextView.text = "❌ Error connecting: ${e.message}"
+        }
+    }
+        // GATT Callback for connection, services, and characteristic changes
+    private val gattCallback = object : BluetoothGattCallback() {
+
+            // Called when connection state changes
+            override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    Log.i("BLE", "Connected to GATT server")
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                        ActivityCompat.checkSelfPermission(
+                            this@MainActivity,
+                            Manifest.permission.BLUETOOTH_CONNECT
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        runOnUiThread {
+                            temperatureTextView.text = "❌ Bluetooth Connect permission denied"
+                        }
+                        return
+                    }
+
+                    gatt.discoverServices()
+                    runOnUiThread {
+                        temperatureTextView.text = "🔍 Discovering services..."
+                    }
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    Log.i("BLE", "Disconnected from GATT server")
+                    runOnUiThread {
+                        temperatureTextView.text = "❌ Disconnected from ESP32-Thermo"
+                    }
+                } else {
+                    Log.e("BLE", "Connection state changed with error $status")
+                    runOnUiThread {
+                        temperatureTextView.text = "❌ Connection error: $status"
+                    }
+                }
+            }
+        }
 }
