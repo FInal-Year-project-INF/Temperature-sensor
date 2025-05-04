@@ -405,6 +405,20 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+        // Called when descriptor is written successfully
+        override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                runOnUiThread {
+                    temperatureTextView.text = "✅ Ready for temperature readings..."
+                }
+            } else {
+                runOnUiThread {
+                    temperatureTextView.text = "❌ Notification setup failed: $status"
+                }
+            }
+        }
     }
+
+    
 
 }
