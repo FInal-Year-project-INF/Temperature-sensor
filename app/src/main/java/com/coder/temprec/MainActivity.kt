@@ -191,8 +191,56 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
+        }
+        if (ActivityCompat.checkSelfPermission(
+               this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.e("Permission", "Location permission not granted!")
+            return
+        }
 
+        deviceFound = false
+       temperatureTextView.text = "🔎 Scanning for ESP32-Thermo..."
+
+        try {
+//            scanner?.startScan(scanCallback) ?: run {
+//                temperatureTextView.text = "❌ Bluetooth scanner not available"
+//                return
+//            }
+
+            // Stop scanning after 10 seconds
+            Handler(Looper.getMainLooper()).postDelayed({
+                stopScan()
+                if (!deviceFound) {
+                    runOnUiThread {
+                        temperatureTextView.text = "❌ ESP32-Thermo not found"
+                    }
+                }
+            }, 10000)
+        } catch (e: Exception) {
+            Log.e("BLE", "Scan error: ${e.message}")
+            temperatureTextView.text = "❌ Error starting scan: ${e.message}"
         }
     }
 
+    // Stop scanning for devices
+    private fun stopScan() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (ActivityCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.BLUETOOTH_SCAN
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+//                    scanner?.stopScan(scanCallback)
+                }
+            } else {
+ //               scanner?.stopScan(scanCallback)
+            }
+        } catch (e: Exception) {
+            Log.e("BLE", "Error stopping scan: ${e.message}")
+        }
+    }
 }
