@@ -391,6 +391,20 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+        // Called when new data is received from characteristic
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+            try {
+                val value = characteristic.getStringValue(0)
+                Log.i("BLE", "Temperature received: $value")
+                runOnUiThread {
+                    temperatureTextView.text = "🌡 Temperature: $value °C"
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    temperatureTextView.text = "❌ Error reading temperature"
+                }
+            }
+        }
     }
 
 }
