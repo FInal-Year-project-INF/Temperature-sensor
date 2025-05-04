@@ -159,8 +159,19 @@ class MainActivity : AppCompatActivity() {
     // Enable Bluetooth if not already enabled
     private fun checkBluetoothEnabled() {
         if (!bluetoothAdapter.isEnabled) {
-            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-            enableBluetoothLauncher.launch(enableBtIntent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // For Android 12+
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                    val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                    enableBluetoothLauncher.launch(enableBtIntent)
+                } else {
+                    temperatureTextView.text = "❌ Bluetooth Connect permission denied"
+                }
+            } else {
+                // For Android 11 and below
+                val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                enableBluetoothLauncher.launch(enableBtIntent)
+            }
         } else {
             startScan()
         }
@@ -193,22 +204,22 @@ class MainActivity : AppCompatActivity() {
 
         }
         if (ActivityCompat.checkSelfPermission(
-               this,
+                this,
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             Log.e("Permission", "Location permission not granted!")
             return
         }
-
+        //set scanning message in the UI and reset the flag
         deviceFound = false
-       temperatureTextView.text = "🔎 Scanning for ESP32-Thermo..."
+        temperatureTextView.text = "🔎 Scanning for ESP32-Thermo..."
 
         try {
-//            scanner?.startScan(scanCallback) ?: run {
-//                temperatureTextView.text = "❌ Bluetooth scanner not available"
-//                return
-//            }
+            scanner?.startScan(scanCallback) ?: run {
+                temperatureTextView.text = "❌ Bluetooth scanner not available"
+                return
+           }
 
             // Stop scanning after 10 seconds
             Handler(Looper.getMainLooper()).postDelayed({
@@ -234,16 +245,52 @@ class MainActivity : AppCompatActivity() {
                         Manifest.permission.BLUETOOTH_SCAN
                     ) == PackageManager.PERMISSION_GRANTED
                 ) {
- //                   scanner?.stopScan(scanCallback)
+                                       scanner?.stopScan(scanCallback)
                 }
             } else {
- //               scanner?.stopScan(scanCallback)
+                               scanner?.stopScan(scanCallback)
             }
         } catch (e: Exception) {
             Log.e("BLE", "Error stopping scan: ${e.message}")
         }
     }
-        // Connect to the BLE device
+    private val scanCallback = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            val device = result.device
+
+            // Safe way to get device name
+            val deviceName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                    device.name
+                } else {
+                    null
+                }
+            } else {
+                device.name
+            }
+
+            Log.i("BLE", "Device found: $deviceName / ${device.address}")
+
+            if (deviceName == "ESP32-Thermo") {
+                Log.i("BLE", "ESP32-Thermo found, connecting...")
+                deviceFound = true
+                stopScan()
+                connectToDevice(device)
+                runOnUiThread {
+                    temperatureTextView.text = "🔗 Connecting to ESP32-Thermo..."
+                }
+            }
+        }
+
+        override fun onScanFailed(errorCode: Int) {
+            Log.e("BLE", "Scan failed with error: $errorCode")
+            runOnUiThread {
+                temperatureTextView.text = "❌ Scan failed with error: $errorCode"
+            }
+        }
+    }
+
+    // Connect to the BLE device
     private fun connectToDevice(device: BluetoothDevice) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
@@ -256,49 +303,51 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-          //  bluetoothGatt = device.connectGatt(this, false, gattCallback)
+              bluetoothGatt = device.connectGatt(this, false, gattCallback)
         } catch (e: Exception) {
             Log.e("BLE", "Error connecting: ${e.message}")
             temperatureTextView.text = "❌ Error connecting: ${e.message}"
         }
     }
-        // GATT Callback for connection, services, and characteristic changes
+
+    // GATT Callback for connection, services, and characteristic changes
     private val gattCallback = object : BluetoothGattCallback() {
 
-            // Called when connection state changes
-            override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-                if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    Log.i("BLE", "Connected to GATT server")
+        // Called when connection state changes
+        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                Log.i("BLE", "Connected to GATT server")
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                        ActivityCompat.checkSelfPermission(
-                            this@MainActivity,
-                            Manifest.permission.BLUETOOTH_CONNECT
-                        ) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        runOnUiThread {
-                            temperatureTextView.text = "❌ Bluetooth Connect permission denied"
-                        }
-                        return
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                    ActivityCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.BLUETOOTH_CONNECT
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    runOnUiThread {
+                        temperatureTextView.text = "❌ Bluetooth Connect permission denied"
                     }
+                    return
+                }
 
-                    gatt.discoverServices()
-                    runOnUiThread {
-                        temperatureTextView.text = "🔍 Discovering services..."
-                    }
-                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    Log.i("BLE", "Disconnected from GATT server")
-                    runOnUiThread {
-                        temperatureTextView.text = "❌ Disconnected from ESP32-Thermo"
-                    }
-                } else {
-                    Log.e("BLE", "Connection state changed with error $status")
-                    runOnUiThread {
-                        temperatureTextView.text = "❌ Connection error: $status"
-                    }
+                gatt.discoverServices()
+                runOnUiThread {
+                    temperatureTextView.text = "🔍 Discovering services..."
+                }
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                Log.i("BLE", "Disconnected from GATT server")
+                runOnUiThread {
+                    temperatureTextView.text = "❌ Disconnected from ESP32-Thermo"
+                }
+            } else {
+                Log.e("BLE", "Connection state changed with error $status")
+                runOnUiThread {
+                    temperatureTextView.text = "❌ Connection error: $status"
                 }
             }
-            // Called when services are discovered
+        }
+
+        // Called when services are discovered
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 val service = gatt.getService(SERVICE_UUID)
@@ -319,8 +368,29 @@ class MainActivity : AppCompatActivity() {
                 ) {
                     return
                 }
+                // Enable notifications for temperature data
+                gatt.setCharacteristicNotification(characteristic, true)
+                val descriptor =
+                    characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+
+                if (descriptor != null) {
+                    descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    gatt.writeDescriptor(descriptor)
+                    runOnUiThread {
+                        temperatureTextView.text = "🔄 Setting up temperature notifications..."
+                    }
+                } else {
+                    runOnUiThread {
+                        temperatureTextView.text = "❌ Notification setup failed"
+                    }
+                }
+            }
+            else {
+                runOnUiThread {
+                    temperatureTextView.text = "❌ Service discovery failed: $status"
+                }
             }
         }
+    }
 
-        }
 }
