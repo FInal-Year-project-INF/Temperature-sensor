@@ -298,5 +298,29 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+            // Called when services are discovered
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                val service = gatt.getService(SERVICE_UUID)
+                val characteristic = service?.getCharacteristic(CHARACTERISTIC_UUID)
+
+                if (service == null || characteristic == null) {
+                    runOnUiThread {
+                        temperatureTextView.text = "❌ Service/Characteristic not found"
+                    }
+                    return
+                }
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                    ActivityCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.BLUETOOTH_CONNECT
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    return
+                }
+            }
+        }
+
         }
 }
