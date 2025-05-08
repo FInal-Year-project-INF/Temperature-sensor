@@ -418,7 +418,27 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+        // Clean up resources on destroy
+    override fun onDestroy() {
+            super.onDestroy()
+            stopScan()
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.BLUETOOTH_CONNECT
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
+
+            try {
+                bluetoothGatt?.close()
+            } catch (e: Exception) {
+                Log.e("BLE", "Error closing GATT: ${e.message}")
+            }
+    }
+}
 
     
 
-}
